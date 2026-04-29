@@ -1,0 +1,23 @@
+{
+  "name": "Prets Vehicules",
+  "short_name": "Prets",
+  "description": "Gestion des prets de vehicules",
+  "start_url": "/index.html",
+  "display": "standalone",
+  "background_color": "#F5F4F0",
+  "theme_color": "#2D5BE3",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "icon.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

@@ -254,8 +254,15 @@ var sc,sx,sdr=false,sdh=false;
 
 function gasCall(method, params, onSuccess, onError) {
   var url = GAS_URL + '?action=' + method;
-  if (params) url += '&data=' + encodeURIComponent(JSON.stringify(params));
-  fetch(url)
+  var opts = { method: 'GET' };
+  if (params) {
+    // POST pour eviter la limite de taille des URLs
+    opts.method = 'POST';
+    opts.headers = { 'Content-Type': 'application/json' };
+    opts.body = JSON.stringify({ action: method, data: params });
+    url = GAS_URL;
+  }
+  fetch(url, opts)
     .then(function(r) { return r.text(); })
     .then(function(txt) {
       try {

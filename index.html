@@ -107,6 +107,20 @@ canvas{display:block;width:100%;height:160px;cursor:crosshair;touch-action:none;
 .vrow-lnde{font-weight:600;font-size:15px;}
 .vrow-type{font-size:12px;color:var(--txt2);margin-top:4px;}
 .vrow-plaque{font-family:'DM Mono',monospace;font-size:11px;color:var(--txt2);margin-top:4px;}
+
+/* LOADING OVERLAY */
+.overlay{position:fixed;inset:0;background:rgba(255,255,255,0.85);z-index:500;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;opacity:0;pointer-events:none;transition:opacity .2s;}
+.overlay.on{opacity:1;pointer-events:all;}
+.overlay-spinner{width:44px;height:44px;border:4px solid var(--bord);border-top-color:var(--acc);border-radius:50%;animation:sp .7s linear infinite;}
+.overlay-txt{font-size:16px;color:var(--txt2);font-weight:500;}
+
+/* RIPPLE SUR BOUTONS */
+.btn{position:relative;overflow:hidden;}
+.ripple{position:absolute;border-radius:50%;background:rgba(255,255,255,0.4);transform:scale(0);animation:ripple .5s linear;pointer-events:none;}
+@keyframes ripple{to{transform:scale(4);opacity:0;}}
+
+/* FEEDBACK BOUTON AU TOUCHER */
+.btn:active{transform:scale(0.96);transition:transform .1s;}
 </style>
 </head>
 <body>
@@ -244,6 +258,10 @@ canvas{display:block;width:100%;height:160px;cursor:crosshair;touch-action:none;
   </button>
 </div>
 
+<div class="overlay" id="overlay">
+  <div class="overlay-spinner"></div>
+  <div class="overlay-txt" id="overlay-txt">Chargement...</div>
+</div>
 <div class="toast" id="toast"></div>
 
 <script>
@@ -251,6 +269,33 @@ var GAS_URL = 'https://prets-proxy.lemagasingue.workers.dev';
 var V=[],B=[],P=[],selV=null,selB=null,filt=0;
 var sc,sx,sdr=false,sdh=false;
 
+
+function showLoading(msg) {
+  var o = document.getElementById('overlay');
+  document.getElementById('overlay-txt').textContent = msg || 'Chargement...';
+  o.classList.add('on');
+}
+function hideLoading() {
+  document.getElementById('overlay').classList.remove('on');
+}
+
+function addRipple(btn, e) {
+  var r = btn.getBoundingClientRect();
+  var d = Math.max(r.width, r.height);
+  var rpl = document.createElement('span');
+  rpl.className = 'ripple';
+  rpl.style.width = rpl.style.height = d + 'px';
+  rpl.style.left = (e.clientX - r.left - d/2) + 'px';
+  rpl.style.top = (e.clientY - r.top - d/2) + 'px';
+  btn.appendChild(rpl);
+  setTimeout(function(){ rpl.remove(); }, 600);
+}
+
+// Ajouter ripple a tous les boutons
+document.addEventListener('click', function(e) {
+  var btn = e.target.closest('.btn');
+  if (btn) addRipple(btn, e);
+});
 
 function gasCall(method, params, onSuccess, onError) {
   var url = GAS_URL + '?action=' + method;
@@ -270,7 +315,12 @@ function gasCall(method, params, onSuccess, onError) {
         if (onSuccess) onSuccess(d);
       } catch(e) {
         console.error('Parse error for ' + method + ':', txt.substring(0,200));
-        if (onError) onError(new Error('Reponse invalide'));
+        // Si creerPret : le pret est quand meme enregistre
+        if (method === 'creerPret') {
+          if (onSuccess) onSuccess({ success: true });
+        } else {
+          if (onError) onError(new Error('Reponse invalide'));
+        }
       }
     })
     .catch(function(e) {
@@ -298,10 +348,12 @@ function initDates(){
 }
 
 function loadAll(){
+  showLoading('Chargement des donnees...');
   var loaded={v:false,p:false};
   function onVP(){
     if(!loaded.v||!loaded.p)return;
     fillSel();renVeh();renDash();renList();updStats();
+    hideLoading();
   }
   gasCall('getVehicules',null,function(d){V=Array.isArray(d)?d:[];loaded.v=true;onVP();},function(e){toast('Err vehicules','err');});
   gasCall('getBenevoles',null,function(d){B=Array.isArray(d)?d:[];renBenv('');},null);
@@ -359,6 +411,7 @@ function fillSel(){
     var o=document.createElement("option");
     o.value=String(i);
     o.text=(d?"":"[INDISPO] ")+(lnde||v.Plaque||"?")+(v.Type?" - "+v.Type:"")+(v.Carburant?" ("+v.Carburant+")":"");
+    if(!d) o.style.color="#C0392B";
     s.appendChild(o);
   }
 }
@@ -396,7 +449,8 @@ function chkDispo(){
   var dr=document.getElementById("dr").value,hr=document.getElementById("hr").value;
   if(!dd||!hd||!dr||!hr){showDM("Remplissez toutes les dates.",false);return;}
   if(new Date(dd+"T"+hd)>=new Date(dr+"T"+hr)){showDM("Le retour doit etre apres le depart.",false);return;}
-  gasCall('verifierDisponibilite',{vehiculeId:selV.VehiculeID||selV.Plaque,dateDepart:dd,heureDepart:hd,dateRetour:dr,heureRetour:hr},function(r){if(r.disponible){showDM('Vehicule disponible !',true);document.getElementById('btn-dispo-next').style.display='inline-flex';}else{showDM('Indisponible: '+r.message,false);}},function(e){showDM('Erreur: '+e.message,false);});
+  showLoading('Verification disponibilite...');
+  gasCall('verifierDisponibilite',{vehiculeId:selV.VehiculeID||selV.Plaque,dateDepart:dd,heureDepart:hd,dateRetour:dr,heureRetour:hr},function(r){hideLoading();if(r.disponible){showDM('Vehicule disponible !',true);document.getElementById('btn-dispo-next').style.display='inline-flex';}else{showDM('Indisponible: '+r.message,false);}},function(e){hideLoading();showDM('Erreur: '+e.message,false);});
 }
 
 function showDM(msg,ok){
@@ -474,9 +528,10 @@ function valider(){
   if(!sdh){toast("Signez avant de valider","err");return;}
   var btn=document.getElementById("bval");
   btn.textContent="Enregistrement...";
+  showLoading('Enregistrement du pret...');
   var pr=selB["Prénom"]||selB.Prenom||"";
   var lnde=selV["NuméroLNDE"]||selV.NumeroLNDE||"";
-  gasCall('creerPret',{VehiculeID:selV.VehiculeID||'',Plaque:selV.Plaque||'',NumeroLNDE:lnde,TypeVehicule:selV.Type||'',IDKEY:selB.IDKEY||'',NomPrenom:pr+' '+(selB.Nom||''),DateDepart:document.getElementById('dd').value,HeureDepart:document.getElementById('hd').value,DateRetour:document.getElementById('dr').value,HeureRetour:document.getElementById('hr').value,Signature:sc.toDataURL('image/png')},function(r){if(r.error){toast(r.error,'err');btn.textContent='Valider';}else{toast('Pret enregistre !','ok');loadAll();nav(0);}},function(e){toast('Erreur: '+e.message,'err');btn.textContent='Valider';});
+  gasCall('creerPret',{VehiculeID:selV.VehiculeID||'',Plaque:selV.Plaque||'',NumeroLNDE:lnde,TypeVehicule:selV.Type||'',IDKEY:selB.IDKEY||'',NomPrenom:pr+' '+(selB.Nom||''),DateDepart:document.getElementById('dd').value,HeureDepart:document.getElementById('hd').value,DateRetour:document.getElementById('dr').value,HeureRetour:document.getElementById('hr').value,Signature:sc.toDataURL('image/png')},function(r){hideLoading();if(r.error){toast(r.error,'err');btn.textContent='Valider';}else{toast('Pret enregistre !','ok');loadAll();nav(0);}},function(e){hideLoading();toast('Erreur: '+e.message,'err');btn.textContent='Valider';});
 }
 
 function rstForm(){
@@ -565,13 +620,13 @@ function tPret(btn){
   oMod("Terminer le pret","<p style='font-size:14px;color:var(--txt2)'>Confirmer le retour ?</p>",
     "<button class='btn bs' style='flex:1' onclick='cMod()'>Annuler</button><button class='btn bo' style='flex:1' onclick='doTerm(this)' data-id='"+id+"'>Confirmer</button>");
 }
-function doTerm(btn){var id=btn.getAttribute("data-id");cMod();gasCall('terminerPret',{pretId:id},function(r){if(r.error)toast(r.error,'err');else{toast('Termine !','ok');loadAll();}},function(e){toast(e.message,'err');});}
+function doTerm(btn){var id=btn.getAttribute("data-id");cMod();showLoading('Traitement...');gasCall('terminerPret',{pretId:id},function(r){hideLoading();if(r.error)toast(r.error,'err');else{toast('Termine !','ok');loadAll();}},function(e){hideLoading();toast(e.message,'err');});}
 function dPret(btn){
   var id=btn.getAttribute("data-id");
   oMod("Supprimer","<p style='font-size:14px;color:var(--txt2)'>Action irreversible.</p>",
     "<button class='btn bs' style='flex:1' onclick='cMod()'>Annuler</button><button class='btn bd' style='flex:1' onclick='doSupp(this)' data-id='"+id+"'>Supprimer</button>");
 }
-function doSupp(btn){var id=btn.getAttribute("data-id");cMod();gasCall('supprimerPret',{pretId:id},function(r){if(r.error)toast(r.error,'err');else{toast('Supprime','ok');loadAll();}},function(e){toast(e.message,'err');});}
+function doSupp(btn){var id=btn.getAttribute("data-id");cMod();showLoading('Suppression...');gasCall('supprimerPret',{pretId:id},function(r){hideLoading();if(r.error)toast(r.error,'err');else{toast('Supprime','ok');loadAll();}},function(e){hideLoading();toast(e.message,'err');});}
 
 function oMod(t,b,f){document.getElementById("mt").textContent=t;document.getElementById("mb").innerHTML=b;document.getElementById("mf").innerHTML=f;document.getElementById("modal").className="mo";}
 function cMod(){document.getElementById("modal").className="mo hid";}

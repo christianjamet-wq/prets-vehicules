@@ -209,7 +209,7 @@ canvas{display:block;width:100%;height:160px;cursor:crosshair;touch-action:none;
        </div>
       <div style="display:flex;gap:8px;margin-top:4px;">
         <button class="btn bs" style="flex:1" onclick="gos(2)">Retour</button>
-        <button class="btn bp" style="flex:2" id="bval" onclick="valider()">Valider</button>
+        <button class="btn bp" style="flex:2" id="bval">Valider</button>
       </div>
     </div>
   </div>
@@ -336,6 +336,18 @@ function gasCall(method, params, onSuccess, onError) {
 
 document.body.style.fontSize="14px";
 window.onload=function(){
+  // Bouton valider : touchend pour eviter le delai 300ms mobile
+  var bval=document.getElementById('bval');
+  if(bval){
+    bval.addEventListener('touchend',function(e){
+      e.preventDefault();
+      valider();
+    },{passive:false});
+    bval.addEventListener('click',function(e){
+      // Fallback pour PC
+      if(!('ontouchstart' in window)) valider();
+    });
+  }
   var d=new Date();
   document.getElementById("dash-date").textContent=d.toLocaleDateString("fr-FR",{weekday:"long",day:"numeric",month:"long"});
   initDates();

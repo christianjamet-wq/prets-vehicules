@@ -197,11 +197,16 @@ canvas{display:block;width:100%;height:160px;cursor:crosshair;touch-action:none;
     </div>
     <div class="sp" id="sp3">
       <div id="recap" class="ibox" style="line-height:1.8;margin-bottom:14px;font-size:16px;"></div>
-      <div class="fg">
-        <label class="fl">Signature</label>
-        <div class="swrap"><canvas id="sig" style="display:block;width:100%;height:130px;cursor:crosshair;touch-action:none;"></canvas></div>
-        <button class="btn bs bsm" style="margin-top:8px;" onclick="clrSig()">Effacer</button>
-      </div>
+       <div class="fg">
+         <label class="fl">Responsable de la saisie</label>
+         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:8px;">
+           <button class="btn bs" id="saisie-Tef"      onclick="selectSaisie('Tef')"      style="font-size:18px;padding:18px;border:2px solid var(--bord);">Tef</button>
+           <button class="btn bs" id="saisie-Ced"      onclick="selectSaisie('Ced')"      style="font-size:18px;padding:18px;border:2px solid var(--bord);">Ced</button>
+           <button class="btn bs" id="saisie-Chris"    onclick="selectSaisie('Chris')"    style="font-size:18px;padding:18px;border:2px solid var(--bord);">Chris</button>
+           <button class="btn bs" id="saisie-Lorianne" onclick="selectSaisie('Lorianne')" style="font-size:18px;padding:18px;border:2px solid var(--bord);">Lorianne</button>
+         </div>
+         <div id="saisie-info" style="display:none;margin-top:12px;padding:12px 16px;background:var(--acc-l);border-radius:var(--r);font-size:15px;color:var(--acc-t);font-weight:500;"></div>
+       </div>
       <div style="display:flex;gap:8px;margin-top:4px;">
         <button class="btn bs" style="flex:1" onclick="gos(2)">Retour</button>
         <button class="btn bp" style="flex:2" id="bval" onclick="valider()">Valider</button>
@@ -267,7 +272,7 @@ canvas{display:block;width:100%;height:160px;cursor:crosshair;touch-action:none;
 <script>
 var GAS_URL = 'https://prets-proxy.lemagasingue.workers.dev';
 var V=[],B=[],P=[],selV=null,selB=null,filt=0;
-var sc,sx,sdr=false,sdh=false;
+var selSaisie_=null;
 
 
 function showLoading(msg) {
@@ -440,7 +445,7 @@ function gos(n){
     var lnde=selV["NuméroLNDE"]||selV.NumeroLNDE||"";
     document.getElementById("v-recap").innerHTML="<strong>"+(lnde||selV.Plaque)+"</strong>"+(selV.Type?" — "+selV.Type:"");
   }
-  if(n===3){bldRecap();initSig();}
+  if(n===3){bldRecap();clrSig();}
   window.scrollTo(0,0);
 }
 
@@ -508,30 +513,41 @@ function bldRecap(){
    +"<strong>Retour:</strong> "+fmtD(document.getElementById("dr").value)+" à "+document.getElementById("hr").value;
 }
 
-function initSig(){
-  sc=document.getElementById("sig");sx=sc.getContext("2d");
-  var r=sc.getBoundingClientRect();
-  sc.width=Math.round(r.width)||320;sc.height=130;
-  sx.strokeStyle="#1A1916";sx.lineWidth=2.5;sx.lineCap="round";sx.lineJoin="round";
-  sdh=false;
-  sc.onmousedown=function(e){sdr=true;sdh=true;var p=spos(e);sx.beginPath();sx.moveTo(p.x,p.y);};
-  sc.onmousemove=function(e){if(!sdr)return;var p=spos(e);sx.lineTo(p.x,p.y);sx.stroke();sx.beginPath();sx.moveTo(p.x,p.y);};
-  sc.onmouseup=sc.onmouseleave=function(){sdr=false;};
-  sc.ontouchstart=function(e){e.preventDefault();sdr=true;sdh=true;var p=spos(e.touches[0]);sx.beginPath();sx.moveTo(p.x,p.y);};
-  sc.ontouchmove=function(e){e.preventDefault();if(!sdr)return;var p=spos(e.touches[0]);sx.lineTo(p.x,p.y);sx.stroke();sx.beginPath();sx.moveTo(p.x,p.y);};
-  sc.ontouchend=function(){sdr=false;};
+var selSaisie=null;
+
+function selectSaisie(nom){
+  selSaisie=nom;
+  var noms=['Tef','Ced','Chris','Lorianne'];
+  for(var i=0;i<noms.length;i++){
+    var btn=document.getElementById('saisie-'+noms[i]);
+    if(btn){btn.style.background='var(--surf2)';btn.style.color='var(--txt)';btn.style.borderColor='var(--bord)';}
+  }
+  var sel=document.getElementById('saisie-'+nom);
+  if(sel){sel.style.background='var(--acc)';sel.style.color='white';sel.style.borderColor='var(--acc)';}
+  var info=document.getElementById('saisie-info');
+  info.style.display='block';
+  info.textContent=nom+' prend en charge ce pret.';
 }
-function spos(e){var r=sc.getBoundingClientRect();return{x:(e.clientX-r.left)*(sc.width/r.width),y:e.clientY-r.top};}
-function clrSig(){if(sx)sx.clearRect(0,0,sc.width,sc.height);sdh=false;}
+
+function clrSig(){
+  selSaisie=null;
+  var noms=['Tef','Ced','Chris','Lorianne'];
+  for(var i=0;i<noms.length;i++){
+    var btn=document.getElementById('saisie-'+noms[i]);
+    if(btn){btn.style.background='var(--surf2)';btn.style.color='var(--txt)';btn.style.borderColor='var(--bord)';}
+  }
+  var info=document.getElementById('saisie-info');
+  if(info)info.style.display='none';
+}
 
 function valider(){
-  if(!sdh){toast("Signez avant de valider","err");return;}
+  if(!selSaisie){toast('Choisissez le responsable de la saisie','err');return;}
   var btn=document.getElementById("bval");
   btn.textContent="Enregistrement...";
   showLoading('Enregistrement du pret...');
   var pr=selB["Prénom"]||selB.Prenom||"";
   var lnde=selV["NuméroLNDE"]||selV.NumeroLNDE||"";
-  gasCall('creerPret',{VehiculeID:selV.VehiculeID||'',Plaque:selV.Plaque||'',NumeroLNDE:lnde,TypeVehicule:selV.Type||'',IDKEY:selB.IDKEY||'',NomPrenom:pr+' '+(selB.Nom||''),DateDepart:document.getElementById('dd').value,HeureDepart:document.getElementById('hd').value,DateRetour:document.getElementById('dr').value,HeureRetour:document.getElementById('hr').value,Signature:sc.toDataURL('image/png')},function(r){hideLoading();if(r.error){toast(r.error,'err');btn.textContent='Valider';}else{toast('Pret enregistre !','ok');loadAll();nav(0);}},function(e){hideLoading();toast('Erreur: '+e.message,'err');btn.textContent='Valider';});
+  gasCall('creerPret',{VehiculeID:selV.VehiculeID||'',Plaque:selV.Plaque||'',NumeroLNDE:lnde,TypeVehicule:selV.Type||'',IDKEY:selB.IDKEY||'',NomPrenom:pr+' '+(selB.Nom||''),DateDepart:document.getElementById('dd').value,HeureDepart:document.getElementById('hd').value,DateRetour:document.getElementById('dr').value,HeureRetour:document.getElementById('hr').value,Signature:'Saisie par '+selSaisie},function(r){hideLoading();if(r.error){toast(r.error,'err');btn.textContent='Valider';}else{toast('Pret enregistre !','ok');loadAll();nav(0);}},function(e){hideLoading();toast('Erreur: '+e.message,'err');btn.textContent='Valider';});
 }
 
 function rstForm(){
